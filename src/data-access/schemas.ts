@@ -9,7 +9,11 @@ export const telemetryDriverSchema = z.object({
   lap: z.number().nullable().optional(),
   lapTime: z.number().nullable().optional(),
   deltaToBest: z.number().nullable().optional(),
-  gapToLeader: z.number().nullable().optional(),
+  /** Formatted gap to leader string: "LEADER", "+1.234", "+1L" */
+  gapToLeader: z.string().nullable().optional(),
+  /** Formatted gap to car directly ahead */
+  intervalGap: z.string().nullable().optional(),
+  compound: z.string().nullable().optional(),
   sectors: z.tuple([z.number().nullable(), z.number().nullable(), z.number().nullable()]).optional(),
   stint: z.number().nullable().optional(),
 });

@@ -5,7 +5,16 @@ export interface DriverPosition {
   full_name: string;
   team_name: string;
   team_colour: string;
+  /** Gap to race leader: "LEADER", "+1.234", "+1L" */
   date: string;
+  /** Gap to car directly ahead: "+0.346", "+1L", or null for leader */
+  interval?: string | null;
+  /** Formatted last lap time: "1:22.456" or "--:--.---" */
+  last_lap?: string | null;
+  /** Current tyre compound: "SOFT", "MEDIUM", "HARD", "INTER", "WET" */
+  tyre?: string | null;
+  /** Current lap number */
+  lap_number?: number | null;
   sector_delta?: string;
   pit_status?: string;
 }

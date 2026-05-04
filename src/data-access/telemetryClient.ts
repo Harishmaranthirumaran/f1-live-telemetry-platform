@@ -12,11 +12,15 @@ function formatLapTime(seconds: number | null | undefined) {
   return `${minutes}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
 }
 
-function formatGap(gap: number | null | undefined) {
-  if (gap === null || gap === undefined || !Number.isFinite(gap)) return '--';
-  if (gap === 0) return 'LEADER';
-  if (gap >= 500) return 'LAPPED';
-  return `+${gap.toFixed(3)}`;
+function normaliseCompound(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const s = raw.toUpperCase().trim();
+  if (s.includes('SOFT')) return 'SOFT';
+  if (s.includes('MED')) return 'MEDIUM';
+  if (s.includes('HARD')) return 'HARD';
+  if (s.includes('INTER')) return 'INTER';
+  if (s.includes('WET')) return 'WET';
+  return s;
 }
 
 function mapTelemetryToDashboard(payload: TelemetryResponseDto): DashboardData {
@@ -36,7 +40,11 @@ function mapTelemetryToDashboard(payload: TelemetryResponseDto): DashboardData {
     full_name: driver.name,
     team_name: driver.team,
     team_colour: driver.color,
-    date: formatGap(driver.gapToLeader),
+    date: driver.gapToLeader ?? '--',
+    interval: driver.intervalGap ?? null,
+    last_lap: formatLapTime(driver.lapTime),
+    tyre: normaliseCompound(driver.compound),
+    lap_number: driver.lap ?? null,
   }));
 
   const laps = payload.drivers

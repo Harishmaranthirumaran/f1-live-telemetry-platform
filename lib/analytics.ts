@@ -10,7 +10,11 @@ export type TelemetryDriver = {
   lap: number | null;
   lapTime: number | null;
   deltaToBest: number | null;
-  gapToLeader: number | null;
+  /** Formatted gap to leader: "LEADER", "+1.234", "+1L" */
+  gapToLeader: string | null;
+  /** Formatted gap to car directly ahead: "+0.456", "+1L", or null for leader */
+  intervalGap: string | null;
+  compound: string | null;
   sectors: [number | null, number | null, number | null];
   stint: number | null;
 };
@@ -21,15 +25,35 @@ export type TelemetryResponse = {
   drivers: TelemetryDriver[];
 };
 
-function parseGapValue(value: OpenF1Interval["gap_to_leader"]): number | null {
+/** Format an OpenF1 gap/interval value into a display string. */
+function formatGapString(
+  value: string | number | null | undefined,
+  isLeader: boolean
+): string | null {
+  if (isLeader) return "LEADER";
   if (value === null || value === undefined) return null;
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
 
-  const trimmed = String(value).trim();
-  const match = trimmed.match(/[-+]?\d*\.?\d+/);
-  if (!match) return null;
-  const parsed = Number(match[0]);
-  return Number.isFinite(parsed) ? parsed : null;
+  if (typeof value === "number") {
+    if (value === 0) return "LEADER";
+    return `+${Math.abs(value).toFixed(3)}`;
+  }
+
+  const str = String(value).trim();
+  if (str === "" || str === "0" || str === "0.000") return "LEADER";
+
+  // Lapped cars: "1 LAP", "+1 LAP", "1L", "2 LAPS"
+  if (/lap/i.test(str)) {
+    const lapMatch = str.match(/\d+/);
+    const lapCount = lapMatch ? Number(lapMatch[0]) : 1;
+    return `+${lapCount}L`;
+  }
+
+  // Regular time gap — always show with +
+  const numMatch = str.match(/\d*\.?\d+/);
+  if (!numMatch) return str;
+  const num = Number(numMatch[0]);
+  if (!Number.isFinite(num)) return str;
+  return `+${num.toFixed(3)}`;
 }
 
 function pickLatestLap(laps: OpenF1Lap[]) {
@@ -47,9 +71,7 @@ function pickLatestLap(laps: OpenF1Lap[]) {
     if (lap.lap_number === existing.lap_number) {
       const lapTs = lap.date_start ? Date.parse(lap.date_start) : 0;
       const existingTs = existing.date_start ? Date.parse(existing.date_start) : 0;
-      if (lapTs > existingTs) {
-        latest.set(lap.driver_number, lap);
-      }
+      if (lapTs > existingTs) latest.set(lap.driver_number, lap);
     }
   }
   return latest;
@@ -72,12 +94,35 @@ function pickLatestInterval(intervals: OpenF1Interval[]) {
     if (lapNumber === existingLap) {
       const intervalTs = interval.date ? Date.parse(interval.date) : 0;
       const existingTs = existing.date ? Date.parse(existing.date) : 0;
-      if (intervalTs > existingTs) {
-        latest.set(interval.driver_number, interval);
-      }
+      if (intervalTs > existingTs) latest.set(interval.driver_number, interval);
     }
   }
   return latest;
+}
+
+/**
+ * Derive race positions from intervals when lap.position is unavailable.
+ * Leader has gap_to_leader = 0 or null. Lapped drivers go to the back.
+ */
+function derivePositionsFromIntervals(
+  intervals: Map<number, OpenF1Interval>
+): Map<number, number> {
+  const parsed = Array.from(intervals.entries()).map(([driverNumber, interval]) => {
+    const raw = interval.gap_to_leader;
+    if (raw === null || raw === undefined) return { driverNumber, gap: 0 };
+    if (typeof raw === "number") return { driverNumber, gap: raw };
+    const str = String(raw).trim();
+    if (str === "" || str === "0" || str === "0.000") return { driverNumber, gap: 0 };
+    if (/lap/i.test(str)) {
+      const lapMatch = str.match(/\d+/);
+      return { driverNumber, gap: 10000 + (lapMatch ? Number(lapMatch[0]) : 1) };
+    }
+    const numMatch = str.match(/\d*\.?\d+/);
+    return { driverNumber, gap: numMatch ? Number(numMatch[0]) : 99999 };
+  });
+
+  parsed.sort((a, b) => a.gap - b.gap);
+  return new Map(parsed.map(({ driverNumber }, index) => [driverNumber, index + 1]));
 }
 
 export function buildTelemetryResponse(
@@ -88,10 +133,11 @@ export function buildTelemetryResponse(
 ): TelemetryResponse {
   const latestLaps = pickLatestLap(laps);
   const latestIntervals = pickLatestInterval(intervals);
+  const derivedPositions = derivePositionsFromIntervals(latestIntervals);
 
   const lapTimes = Array.from(latestLaps.values())
     .map((lap) => lap.lap_duration)
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
 
   const bestLap = lapTimes.length ? Math.min(...lapTimes) : null;
 
@@ -115,22 +161,26 @@ export function buildTelemetryResponse(
         ? Number((lapTime - bestLap).toFixed(3))
         : null;
 
-    const gapToLeader = parseGapValue(interval?.gap_to_leader ?? null);
+    // Prefer lap.position; fall back to interval-derived order
+    const position = lap?.position ?? derivedPositions.get(driver.driver_number) ?? null;
+    const isLeader = position === 1;
 
     return {
       code,
       name: driverMeta?.name || driver.full_name || driver.broadcast_name || code,
       team: driverMeta?.team || driver.team_name || "Unknown",
-      color: driverMeta?.color || DEFAULT_DRIVER_COLOR,
-      position: lap?.position ?? null,
+      color: driverMeta?.color || driver.team_colour?.replace("#", "") || DEFAULT_DRIVER_COLOR,
+      position,
       lap: lap?.lap_number ?? null,
       lapTime: lapTime !== null ? Number(lapTime.toFixed(3)) : null,
       deltaToBest,
-      gapToLeader: gapToLeader !== null ? Number(gapToLeader.toFixed(3)) : null,
-      sectors: sectors.map((value) => (value !== null ? Number(value.toFixed(3)) : null)) as [
+      gapToLeader: formatGapString(interval?.gap_to_leader ?? null, isLeader),
+      intervalGap: isLeader ? null : formatGapString(interval?.interval ?? null, false),
+      compound: lap?.compound ?? null,
+      sectors: sectors.map((v) => (v !== null ? Number(v.toFixed(3)) : null)) as [
         number | null,
         number | null,
-        number | null
+        number | null,
       ],
       stint: null,
     };
@@ -148,7 +198,7 @@ export function buildTelemetryResponse(
   const sessionSlugBase = `${session.circuit_short_name || session.session_name}`.trim();
   const slug = `${sessionYear ?? "unknown"}-${sessionSlugBase}`
     .toLowerCase()
-    .replace(/\\s+/g, "-")
+    .replace(/\s+/g, "-")
     .replace(/[^a-z0-9-]/g, "");
 
   return {

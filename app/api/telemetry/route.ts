@@ -5,6 +5,7 @@ import {
   getCurrentSession,
   getDrivers,
   getIntervals,
+  getRecentIntervals,
   getLaps,
   getLapsForLapNumbers,
   getNextSession,
@@ -13,6 +14,7 @@ import {
   getWeather,
   type OpenF1CarData,
   type OpenF1Driver,
+  type OpenF1Interval,
   type OpenF1Lap,
   type OpenF1RaceControl,
   type OpenF1Stint,
@@ -337,9 +339,21 @@ async function buildTelemetryPayload(): Promise<TelemetryPayload> {
     };
   }
 
-  const [drivers, intervals, stints, weather, raceControl] = await Promise.all([
+  // Fetch intervals: try the last 10 minutes first to reduce payload during long races.
+  // Fall back to all intervals if recent fetch returns nothing (e.g. race just started).
+  const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  let intervals: OpenF1Interval[] = [];
+  try {
+    intervals = await getRecentIntervals(session.session_key, recentCutoff);
+  } catch {
+    // recent fetch failed — no warning, fall through to full fetch below
+  }
+  if (intervals.length === 0) {
+    intervals = await fetchWithRetry(() => getIntervals(session.session_key)).catch(() => []);
+  }
+
+  const [drivers, stints, weather, raceControl] = await Promise.all([
     fetchWithRetry(() => getDrivers(session.session_key)),
-    fetchWithRetry(() => getIntervals(session.session_key)),
     getStints(session.session_key).catch((error) => {
       warnings.push(`stints unavailable: ${error instanceof Error ? error.message : "unknown error"}`);
       return [];
@@ -354,6 +368,8 @@ async function buildTelemetryPayload(): Promise<TelemetryPayload> {
     }),
   ]);
 
+  // Determine which lap numbers to fetch. Use the max lap from intervals to avoid
+  // pulling thousands of lap records for a race that's 50+ laps in.
   const lapNumbers = intervals
     .map((interval) => interval.lap_number)
     .filter((lap): lap is number => typeof lap === "number" && Number.isFinite(lap));

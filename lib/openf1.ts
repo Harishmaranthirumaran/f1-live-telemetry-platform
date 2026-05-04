@@ -371,6 +371,25 @@ export async function getIntervals(sessionKey: number) {
   return fetchOpenF1<OpenF1Interval[]>("/intervals", { session_key: sessionKey });
 }
 
+/**
+ * Fetch only intervals recorded after `afterDate` (ISO string).
+ * Uses OpenF1's `date>` inequality filter to reduce payload size during long races.
+ * Falls back to empty array on error — callers should fall back to getIntervals().
+ */
+export async function getRecentIntervals(sessionKey: number, afterDate: string): Promise<OpenF1Interval[]> {
+  // Build the URL manually so the `>` operator is not URL-encoded as a param value
+  const url = `${BASE_URL}intervals?session_key=${sessionKey}&date>${encodeURIComponent(afterDate)}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { cache: "no-store", signal: controller.signal });
+    if (!response.ok) throw new Error(`getRecentIntervals failed (${response.status})`);
+    return response.json() as Promise<OpenF1Interval[]>;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function getRaceControl(sessionKey: number) {
   return fetchOpenF1<OpenF1RaceControl[]>("/race_control", { session_key: sessionKey });
 }

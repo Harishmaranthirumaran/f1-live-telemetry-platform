@@ -9,10 +9,11 @@ interface DraggableWidgetProps {
   defaultHeight?: number;
   minWidth?: number;
   minHeight?: number;
+  onClose?: () => void;
   children: React.ReactNode;
 }
 
-const LAYOUT_VERSION = 'miami-live-telemetry-v3';
+const LAYOUT_VERSION = 'f1-hud-v4';
 const VIEWPORT_PADDING = 16;
 const VIEWPORT_BOTTOM_PADDING = 48;
 
@@ -32,6 +33,7 @@ export default function DraggableWidget({
   defaultHeight,
   minWidth = 260,
   minHeight = 160,
+  onClose,
   children,
 }: DraggableWidgetProps) {
   const storageKey = `hud_widget_${LAYOUT_VERSION}_${id}`;
@@ -39,6 +41,7 @@ export default function DraggableWidget({
   const [layout, setLayout] = useState<WidgetLayout>({ x: defaultX, y: defaultY, width: defaultWidth, height: defaultHeight });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; initialWidth: number; initialHeight: number } | null>(null);
   const widgetRef = useRef<HTMLDivElement | null>(null);
@@ -144,13 +147,13 @@ export default function DraggableWidget({
       // Snap to 20px grid
       const newX = Math.round((dragRef.current.initialX + dx) / 20) * 20;
       const newY = Math.round((dragRef.current.initialY + dy) / 20) * 20;
-      
+
       const widgetWidth = layoutRef.current.width;
       const widgetHeight = layoutRef.current.height ?? minHeight;
       const bounds = getViewportCoordinateBounds(widgetWidth, widgetHeight);
       const boundedX = clampToViewport(newX, bounds.minX, bounds.maxX);
       const boundedY = clampToViewport(newY, bounds.minY, bounds.maxY);
-      
+
       setLayout((current) => ({ ...current, x: boundedX, y: boundedY }));
     };
 
@@ -217,20 +220,73 @@ export default function DraggableWidget({
     <div
       ref={widgetRef}
       className={`hud-widget ${isDragging ? 'dragging' : ''} ${isResizing ? 'resizing' : ''}`}
-      style={{ left: layout.x, top: layout.y, width: layout.width, height: layout.height }}
+      style={{
+        left: layout.x,
+        top: layout.y,
+        width: layout.width,
+        height: collapsed ? 'auto' : layout.height,
+      }}
     >
-      <div className="hud-widget-header" onMouseDown={handleMouseDown}>
-        <span style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', userSelect: 'none' }}>{title}</span>
+      <div
+        className="hud-widget-header"
+        onMouseDown={handleMouseDown}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', userSelect: 'none' }}
+      >
+        <span style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', userSelect: 'none', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, marginLeft: '6px' }}>
+          <button
+            type="button"
+            aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => setCollapsed((c) => !c)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: '2px 5px',
+              fontSize: '13px',
+              lineHeight: 1,
+              borderRadius: '3px',
+            }}
+          >
+            {collapsed ? '+' : '−'}
+          </button>
+          {onClose && (
+            <button
+              type="button"
+              aria-label={`Close ${title}`}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={onClose}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '2px 5px',
+                fontSize: '13px',
+                lineHeight: 1,
+                borderRadius: '3px',
+              }}
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
-      <div className="hud-widget-content" style={{ padding: '12px' }}>
-        {children}
-      </div>
-      <button
-        type="button"
-        className="hud-widget-resize"
-        aria-label={`Resize ${title}`}
-        onMouseDown={handleResizeMouseDown}
-      />
+      {!collapsed && (
+        <>
+          <div className="hud-widget-content" style={{ padding: '12px' }}>
+            {children}
+          </div>
+          <button
+            type="button"
+            className="hud-widget-resize"
+            aria-label={`Resize ${title}`}
+            onMouseDown={handleResizeMouseDown}
+          />
+        </>
+      )}
     </div>
   );
 }

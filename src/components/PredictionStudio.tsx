@@ -12,7 +12,7 @@ type PredictionFormState = {
 
 type WeekendPrediction = NonNullable<PredictionForecastResponse['weekend']>[number];
 
-const DEFAULT_GP = 'Miami Grand Prix';
+const DEFAULT_GP = 'Canadian Grand Prix';
 
 const buttonStyle: CSSProperties = {
   borderRadius: 999,
@@ -139,6 +139,19 @@ export default function PredictionStudio() {
   const weekend = forecast?.weekend ?? [];
   const racePrediction = weekend.find((entry) => entry.id === 'race');
 
+  // Auto-detect the next race from the API on mount
+  useEffect(() => {
+    fetch('/api/schedule/next-race', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { next_race?: { session_name?: string } } | null) => {
+        const name = data?.next_race?.session_name;
+        if (name) {
+          setForm((current) => ({ ...current, grandPrix: name }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const handle = window.setTimeout(() => setDebouncedForm(form), 250);
     return () => window.clearTimeout(handle);
@@ -183,7 +196,7 @@ export default function PredictionStudio() {
             Prediction Studio
           </p>
           <h2 style={{ margin: '0.4rem 0 0', fontSize: '1.9rem' }}>
-            {forecast?.title ?? 'Miami Weekend Forecast'}
+            {forecast?.title ?? `${form.grandPrix} Forecast`}
           </h2>
           <p style={{ margin: '0.6rem 0 0', color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 850 }}>
             Session-by-session predictions for practice, sprint qualifying, qualifying, and the race. During a live session, OpenF1 lap data and race-control signals reweight the cards automatically.
@@ -201,7 +214,7 @@ export default function PredictionStudio() {
           <input
             value={form.grandPrix}
             onChange={(e) => setForm((current) => ({ ...current, grandPrix: e.target.value }))}
-            placeholder="Miami Grand Prix"
+            placeholder="e.g. Canadian Grand Prix"
             style={{
               padding: '0.9rem 1rem',
               borderRadius: 8,
@@ -233,7 +246,7 @@ export default function PredictionStudio() {
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button type="button" style={buttonStyle} onClick={() => setForm((current) => ({ ...current, grandPrix: DEFAULT_GP }))}>
             <CalendarRange size={16} style={{ display: 'inline', marginRight: '0.45rem' }} />
-            Miami GP
+            Next GP
           </button>
           <button type="button" style={buttonStyle} onClick={() => setDebouncedForm({ ...form })}>
             <RefreshCw size={16} style={{ display: 'inline', marginRight: '0.45rem' }} />

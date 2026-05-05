@@ -12,7 +12,7 @@ type NextRaceIntelligenceProps = {
   compact?: boolean;
 };
 
-const FALLBACK_NEXT_RACE = 'Miami Grand Prix';
+const FALLBACK_NEXT_RACE = 'Canadian Grand Prix';
 const GENERIC_SESSION_NAMES = new Set(['', 'Race', 'NO LIVE SESSION', 'TELEMETRY OFFLINE']);
 const INTELLIGENCE_TIMEOUT_MS = 6_500;
 const PREVIOUS_EDITION_TIMEOUT_MS = 7_500;

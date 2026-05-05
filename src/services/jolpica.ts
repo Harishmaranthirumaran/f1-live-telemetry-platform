@@ -142,6 +142,10 @@ export async function fetchHistoricalData(year?: string, round?: string): Promis
         team_name: result.Constructor.name,
         team_colour: meta.color,
         date: result.status === 'Finished' && result.Time ? result.Time.time : result.status,
+        interval: null,
+        last_lap: result.FastestLap?.Time?.time ?? null,
+        tyre: null,
+        lap_number: null,
       };
     });
 

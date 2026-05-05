@@ -36,8 +36,8 @@ const FALLBACK_BACKDROP_SESSION: DashboardSession = {
   current_lap: 'SCHEDULED',
 };
 
-const HUD_VISIBILITY_STORAGE_KEY = 'hud_widget_visibility_miami-live-telemetry-v1';
-const HUD_LAYOUT_STORAGE_PREFIX = 'hud_widget_miami-live-telemetry-v3_';
+const HUD_VISIBILITY_STORAGE_KEY = 'hud_widget_visibility_f1-hud-v4';
+const HUD_LAYOUT_STORAGE_PREFIX = 'hud_widget_f1-hud-v4_';
 
 const HUD_WIDGET_OPTIONS = [
   { id: 'leaderboard', label: 'Live timing' },
@@ -458,7 +458,7 @@ function App() {
                   {hudControls}
 
                   {visibleHudWidgets.leaderboard && (
-                  <DraggableWidget key={`leaderboard-${layoutResetKey}`} id="leaderboard" title={viewMode === 'LIVE' ? 'LIVE TIMING & INTERVALS' : 'RACE CLASSIFICATION'} defaultX={340} defaultY={80} width={350} defaultHeight={330} minHeight={220}>
+                  <DraggableWidget key={`leaderboard-${layoutResetKey}`} id="leaderboard" title={viewMode === 'LIVE' ? 'LIVE TIMING & INTERVALS' : 'RACE CLASSIFICATION'} defaultX={340} defaultY={80} width={400} defaultHeight={620} minHeight={300} onClose={() => updateHudVisibility('leaderboard', false)}>
                     {leaderboard && (
                       <LiveTiming
                         data={leaderboard}
@@ -471,19 +471,19 @@ function App() {
                   )}
 
                   {visibleHudWidgets.live_race_telemetry && (
-                  <DraggableWidget key={`live_race_telemetry-${layoutResetKey}`} id="live_race_telemetry" title="MIAMI LIVE RACE TELEMETRY" defaultX={710} defaultY={80} width={620} defaultHeight={620} minWidth={440} minHeight={360}>
+                  <DraggableWidget key={`live_race_telemetry-${layoutResetKey}`} id="live_race_telemetry" title="LIVE RACE TELEMETRY" defaultX={760} defaultY={80} width={560} defaultHeight={620} minWidth={400} minHeight={360} onClose={() => updateHudVisibility('live_race_telemetry', false)}>
                     <LiveRaceTelemetryPanel nextSession={nextSchedule} />
                   </DraggableWidget>
                   )}
 
                   {visibleHudWidgets.next_race_intelligence && (
-                  <DraggableWidget key={`next_race_intelligence-${layoutResetKey}`} id="next_race_intelligence" title="NEXT RACE INTELLIGENCE" defaultX={710} defaultY={730} width={620} defaultHeight={520} minWidth={420} minHeight={340}>
+                  <DraggableWidget key={`next_race_intelligence-${layoutResetKey}`} id="next_race_intelligence" title="NEXT RACE INTELLIGENCE" defaultX={760} defaultY={720} width={560} defaultHeight={480} minWidth={400} minHeight={320} onClose={() => updateHudVisibility('next_race_intelligence', false)}>
                     <NextRaceIntelligence nextSession={nextRaceSchedule} />
                   </DraggableWidget>
                   )}
 
                   {visibleHudWidgets.focused_driver && (
-                  <DraggableWidget key={`focused_driver-${layoutResetKey}`} id="focused_driver" title="DRIVER FOCUS" defaultX={rightRailX} defaultY={80} width={340} defaultHeight={330} minHeight={240}>
+                  <DraggableWidget key={`focused_driver-${layoutResetKey}`} id="focused_driver" title="DRIVER FOCUS" defaultX={rightRailX} defaultY={80} width={340} defaultHeight={330} minHeight={240} onClose={() => updateHudVisibility('focused_driver', false)}>
                     {session && (
                       <MaxTracker
                         currentPos={leaderboard?.find((d) => d.name_acronym === 'VER')?.position || null}
@@ -495,14 +495,14 @@ function App() {
                   )}
 
                   {visibleHudWidgets.session_info && (
-                  <DraggableWidget key={`session_info-${layoutResetKey}`} id="session_info" title="SESSION" defaultX={rightRailX} defaultY={470} width={340} defaultHeight={260} minHeight={220}>
+                  <DraggableWidget key={`session_info-${layoutResetKey}`} id="session_info" title="SESSION" defaultX={rightRailX} defaultY={430} width={340} defaultHeight={260} minHeight={220} onClose={() => updateHudVisibility('session_info', false)}>
                     {session && <SessionInfo session={session} />}
                   </DraggableWidget>
                   )}
 
                   {visibleHudWidgets.data_pipeline && (
-                  <DraggableWidget key={`data_pipeline-${layoutResetKey}`} id="data_pipeline" title="PIPELINE" defaultX={rightRailX} defaultY={760} width={340} defaultHeight={120} minHeight={100}>
-                    <div style={{ width: '320px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <DraggableWidget key={`data_pipeline-${layoutResetKey}`} id="data_pipeline" title="PIPELINE" defaultX={rightRailX} defaultY={710} width={340} defaultHeight={120} minHeight={100} onClose={() => updateHudVisibility('data_pipeline', false)}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--accent-cyan)' }}>
                         {viewMode === 'LIVE' ? 'SYNCHRONIZED' : 'ARCHIVED'}
                       </span>

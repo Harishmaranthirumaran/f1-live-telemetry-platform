@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint app lib src tests --ext .ts,.tsx",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "npm run test:unit",
     "test:unit": "node --import tsx --test tests/unit/**/*.test.ts",

@@ -134,6 +134,8 @@ async function fetchWithRetry<T>(fn: () => Promise<T>, maxAttempts = 3) {
     try {
       return await fn();
     } catch (err) {
+      // Never retry live-lock errors — they won't resolve until the session ends
+      if (err instanceof OpenF1LiveLockError) throw err;
       attempt += 1;
       if (attempt >= maxAttempts) throw err;
       await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -339,7 +341,10 @@ async function buildTelemetryPayload(): Promise<TelemetryPayload> {
   try {
     [session, weekendSessions] = await Promise.all([
       fetchWithRetry(() => getCurrentSession()),
-      getWeekendSchedule().catch(() => [] as OpenF1Session[]),
+      getWeekendSchedule().catch((err) => {
+        if (err instanceof OpenF1LiveLockError) throw err;
+        return [] as OpenF1Session[];
+      }),
     ]);
   } catch (err) {
     if (err instanceof OpenF1LiveLockError) {
@@ -491,9 +496,15 @@ async function refreshTelemetry(): Promise<TelemetryPayload> {
   if (!inFlight) {
     inFlight = (async () => {
       const payload = await buildTelemetryPayload();
+      // Cache live-lock responses for only 5s so the dashboard re-checks
+      // frequently and picks up real data as soon as the race ends and
+      // OpenF1 unlocks the API.
+      const isLiveLock = payload.status === "live" &&
+        (payload as { session?: string }).session === "live-session-api-locked";
+      const ttl = isLiveLock ? FRESH_TTL_S : STALE_TTL_S;
       await Promise.all([
-        cacheSet(CACHE_KEY_PAYLOAD, payload, STALE_TTL_S),
-        cacheSet(CACHE_KEY_FETCHED_AT, Date.now(), STALE_TTL_S),
+        cacheSet(CACHE_KEY_PAYLOAD, payload, ttl),
+        cacheSet(CACHE_KEY_FETCHED_AT, Date.now(), ttl),
       ]);
       return payload;
     })();

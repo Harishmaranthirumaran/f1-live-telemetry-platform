@@ -234,14 +234,16 @@ export async function getCurrentSession(now = new Date()): Promise<OpenF1Session
 
   try {
     sessions = await fetchOpenF1<OpenF1Session[]>("/sessions", { year });
-  } catch {
+  } catch (err) {
+    if (err instanceof OpenF1LiveLockError) throw err;
     sessions = [];
   }
 
   if (!sessions.length) {
     try {
       sessions = await fetchOpenF1<OpenF1Session[]>("/sessions");
-    } catch {
+    } catch (err) {
+      if (err instanceof OpenF1LiveLockError) throw err;
       sessions = [];
     }
   }
@@ -348,7 +350,8 @@ export async function getWeekendSchedule(now = new Date()): Promise<OpenF1Sessio
   let allSessions: OpenF1Session[] = [];
   try {
     allSessions = await fetchOpenF1<OpenF1Session[]>("/sessions", { year });
-  } catch {
+  } catch (err) {
+    if (err instanceof OpenF1LiveLockError) throw err;
     return [];
   }
 

@@ -59,6 +59,8 @@ export interface DashboardData {
   next_session?: DashboardSession | null;
   weekend_schedule?: WeekendSession[];
   data_health?: 'healthy' | 'degraded' | 'offline';
+  /** True when OpenF1 API is locked during a live session (unauthenticated access gated) */
+  api_locked?: boolean;
   warnings?: string[];
 }
 

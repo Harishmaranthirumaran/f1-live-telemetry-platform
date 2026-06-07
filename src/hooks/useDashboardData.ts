@@ -21,6 +21,7 @@ interface DashboardState {
   selectedRound: string | null;
   seasonRaces: SeasonRace[];
   weekendSchedule: WeekendSession[];
+  apiLocked: boolean;
 }
 
 type DashboardAction =
@@ -39,6 +40,7 @@ type DashboardAction =
         data_health?: 'healthy' | 'degraded' | 'offline';
         warnings?: string[];
         weekend_schedule?: WeekendSession[];
+        api_locked?: boolean;
       };
     }
   | { type: 'FETCH_ERROR'; payload: string }
@@ -68,6 +70,7 @@ const dashboardReducer = (state: DashboardState, action: DashboardAction): Dashb
         warnings: action.payload.warnings ?? [],
         errorMsg: action.payload.data_health === 'offline' ? 'Live telemetry is currently unavailable.' : null,
         weekendSchedule: action.payload.weekend_schedule ?? [],
+        apiLocked: action.payload.api_locked ?? false,
       };
     case 'FETCH_ERROR':
       return {
@@ -125,6 +128,7 @@ const initialState: DashboardState = {
   selectedRound: null,
   seasonRaces: [],
   weekendSchedule: [],
+  apiLocked: false,
 };
 
 export function useDashboardData() {

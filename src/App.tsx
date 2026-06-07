@@ -99,6 +99,7 @@ function App() {
     liveStatus,
     nextSession,
     weekendSchedule,
+    apiLocked,
   } = state;
   const isLive = liveStatus === 'LIVE';
   const [latestCompletedSession, setLatestCompletedSession] = useState<DashboardSession | null>(null);
@@ -354,7 +355,22 @@ function App() {
           </div>
         ) : (
           <main style={{ position: 'relative', width: '100%', minHeight: '100vh', pointerEvents: 'none' }}>
-            {(dataState === 'degraded' || dataState === 'offline') && (
+            {apiLocked && (
+              <div style={{ pointerEvents: 'auto', padding: '0 1rem' }}>
+                <div className="glass-panel" style={{ borderColor: 'rgba(234, 51, 35, 0.5)', marginBottom: '1rem', padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div className="pulsing-dot" style={{ flexShrink: 0 }} />
+                  <div>
+                    <strong style={{ color: 'var(--accent-f1)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.82rem', letterSpacing: '0.1em' }}>
+                      RACE IN PROGRESS
+                    </strong>
+                    <p style={{ marginTop: '0.3rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                      OpenF1 restricts unauthenticated API access during live sessions. Telemetry and timing will resume automatically when the race ends.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!apiLocked && (dataState === 'degraded' || dataState === 'offline') && (
               <div style={{ pointerEvents: 'auto', padding: '0 1rem' }}>
                 <div className="glass-panel" style={{ borderColor: 'rgba(244, 180, 0, 0.45)', marginBottom: '1rem', padding: '0.85rem 1rem' }}>
                   <strong style={{ color: '#f4b400', fontSize: '0.85rem', letterSpacing: '0.08em' }}>DATA MODE: {dataState.toUpperCase()}</strong>
@@ -530,8 +546,8 @@ function App() {
                <span>LOC: {session?.location || 'TRACKSIDE'}</span>
             </div>
             <div className="status-item">
-               <span style={{ color: isLive ? 'var(--accent-success)' : 'var(--accent-f1)' }}>
-                {isLive ? 'LIVE' : 'TRACK CLEAR'}
+               <span style={{ color: apiLocked ? 'var(--accent-f1)' : isLive ? 'var(--accent-success)' : 'var(--text-muted)' }}>
+                {apiLocked ? 'RACE IN PROGRESS' : isLive ? 'LIVE' : 'TRACK CLEAR'}
                </span>
             </div>
          </div>

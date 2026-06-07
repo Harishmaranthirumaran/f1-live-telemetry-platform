@@ -15,6 +15,7 @@ import {
   getStints,
   getWeather,
   getWeekendSchedule,
+  OpenF1LiveLockError,
   type OpenF1CarData,
   type OpenF1Driver,
   type OpenF1Interval,
@@ -331,10 +332,52 @@ function mapSessionSlot(s: OpenF1Session): WeekendSessionSlot {
 async function buildTelemetryPayload(): Promise<TelemetryPayload> {
   const warnings: string[] = [];
 
-  const [session, weekendSessions] = await Promise.all([
-    fetchWithRetry(() => getCurrentSession()),
-    getWeekendSchedule().catch(() => [] as OpenF1Session[]),
-  ]);
+  let session: OpenF1Session | null = null;
+  let weekendSessions: OpenF1Session[] = [];
+  let isApiLocked = false;
+
+  try {
+    [session, weekendSessions] = await Promise.all([
+      fetchWithRetry(() => getCurrentSession()),
+      getWeekendSchedule().catch(() => [] as OpenF1Session[]),
+    ]);
+  } catch (err) {
+    if (err instanceof OpenF1LiveLockError) {
+      // OpenF1 locks the entire API during live sessions for unauthenticated access.
+      // We know a race is happening — return a live-locked response so the dashboard
+      // shows "RACE IN PROGRESS" instead of "TRACK CLEAR".
+      isApiLocked = true;
+    } else {
+      throw err;
+    }
+  }
+
+  if (isApiLocked) {
+    return {
+      status: "live",
+      session: "live-session-api-locked",
+      session_name: "RACE IN PROGRESS",
+      session_type: "Race",
+      country_name: "",
+      location: "Circuit",
+      circuit_short_name: "LIVE",
+      timestamp: Math.floor(Date.now() / 1000),
+      drivers: [],
+      weekend_schedule: [],
+      warnings: ["OpenF1 API is locked during the live session. Telemetry resumes when the race ends."],
+      telemetry_intelligence: buildTelemetryIntelligence({
+        sessionName: "Race In Progress",
+        sessionType: "Race",
+        status: "live",
+        drivers: [],
+        laps: [],
+        stints: [],
+        weather: [],
+        raceControl: [],
+        carData: [],
+      }),
+    };
+  }
 
   const weekend_schedule = weekendSessions.map(mapSessionSlot);
 

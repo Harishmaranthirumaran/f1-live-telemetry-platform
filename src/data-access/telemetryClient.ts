@@ -24,6 +24,7 @@ function normaliseCompound(raw: string | null | undefined): string | null {
 }
 
 function mapTelemetryToDashboard(payload: TelemetryResponseDto): DashboardData {
+  const isApiLocked = payload.status === 'live' && payload.session === 'live-session-api-locked';
   const liveStatus = payload.status === 'live' ? 'LIVE' : 'NO_RACE';
 
   const driversSorted = [...(payload.drivers ?? [])].sort((a, b) => {
@@ -108,6 +109,7 @@ function mapTelemetryToDashboard(payload: TelemetryResponseDto): DashboardData {
     live_status: liveStatus,
     next_session: nextSession,
     weekend_schedule: payload.weekend_schedule ?? [],
+    api_locked: isApiLocked || undefined,
   };
 }
 

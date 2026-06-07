@@ -109,6 +109,19 @@ export type OpenF1TeamRadio = {
 
 const BASE_URL = "https://api.openf1.org/v1/";
 
+/**
+ * Thrown when OpenF1 returns its live-session lockout response.
+ * Callers can catch this specifically to show a "race in progress" UI
+ * rather than treating it as a generic error.
+ */
+export class OpenF1LiveLockError extends Error {
+  readonly isLiveLock = true;
+  constructor(detail?: string) {
+    super(detail ?? "OpenF1 API is locked during a live session");
+    this.name = "OpenF1LiveLockError";
+  }
+}
+
 function buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>) {
   const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
   const url = new URL(normalizedPath, BASE_URL);
@@ -152,7 +165,16 @@ async function fetchOpenF1<T>(path: string, params?: Record<string, string | num
     }
 
     if (response.ok) {
-      return response.json() as Promise<T>;
+      const json = await response.json();
+      // OpenF1 returns HTTP 200 with {"detail":"Live F1 session..."} during
+      // a live race to gate unauthenticated access. Treat this as a lockout.
+      if (json && typeof json === "object" && !Array.isArray(json) && "detail" in json) {
+        const detail = String((json as Record<string, unknown>).detail ?? "");
+        if (detail.toLowerCase().includes("live f1 session")) {
+          throw new OpenF1LiveLockError(detail);
+        }
+      }
+      return json as T;
     }
 
     const retryable = response.status === 429 || response.status >= 500;

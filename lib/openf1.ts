@@ -164,16 +164,18 @@ async function fetchOpenF1<T>(path: string, params?: Record<string, string | num
       clearTimeout(timeoutId);
     }
 
-    if (response.ok) {
-      const json = await response.json();
-      // OpenF1 returns HTTP 200 with {"detail":"Live F1 session..."} during
-      // a live race to gate unauthenticated access. Treat this as a lockout.
-      if (json && typeof json === "object" && !Array.isArray(json) && "detail" in json) {
-        const detail = String((json as Record<string, unknown>).detail ?? "");
-        if (detail.toLowerCase().includes("live f1 session")) {
-          throw new OpenF1LiveLockError(detail);
-        }
+    // OpenF1 returns 200 OR 401 with {"detail":"Live F1 session..."} during
+    // live races to gate unauthenticated access. Check before anything else.
+    let json: unknown;
+    try { json = await response.json(); } catch { json = null; }
+    if (json && typeof json === "object" && !Array.isArray(json) && "detail" in (json as object)) {
+      const detail = String((json as Record<string, unknown>).detail ?? "");
+      if (detail.toLowerCase().includes("live f1 session")) {
+        throw new OpenF1LiveLockError(detail);
       }
+    }
+
+    if (response.ok) {
       return json as T;
     }
 

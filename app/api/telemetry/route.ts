@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "../../../lib/rateLimit";
-import { cacheGet, cacheSet } from "../../../lib/cache";
+import { cacheGet, cacheDel, cacheSet } from "../../../lib/cache";
 import { buildTelemetryResponse } from "../../../lib/analytics";
 import {
   getCarData,
@@ -358,6 +358,8 @@ async function buildTelemetryPayload(): Promise<TelemetryPayload> {
   }
 
   if (isApiLocked) {
+    // Clear any stale no_live cache so other serverless instances also get fresh data
+    await Promise.all([cacheDel(CACHE_KEY_PAYLOAD), cacheDel(CACHE_KEY_FETCHED_AT)]);
     return {
       status: "live",
       session: "live-session-api-locked",
@@ -529,14 +531,19 @@ export async function GET(request: NextRequest) {
   try {
     const now = Date.now();
 
-    if (cachedPayload && lastFetchMs && now - lastFetchMs < FRESH_TTL_S * 1000) {
+    // Never serve a stale no_live cache hit — it could be wrong during a live
+    // race (e.g. cached before the OpenF1 lockout fix was deployed, or cached
+    // before the race started). Always force a fresh fetch if status is no_live.
+    const cachedIsNoLive = !cachedPayload || cachedPayload.status === "no_live";
+
+    if (cachedPayload && !cachedIsNoLive && lastFetchMs && now - lastFetchMs < FRESH_TTL_S * 1000) {
       return NextResponse.json(cachedPayload, {
         status: 200,
         headers: { "x-telemetry-cache": "hit" },
       });
     }
 
-    if (cachedPayload) {
+    if (cachedPayload && !cachedIsNoLive) {
       void refreshTelemetry().catch(() => null);
       return NextResponse.json(cachedPayload, {
         status: 200,

@@ -13,6 +13,8 @@ import TrackBackdrop from './components/TrackBackdrop';
 import DraggableWidget from './components/DraggableWidget';
 import NextRaceIntelligence from './components/NextRaceIntelligence';
 import LiveRaceTelemetryPanel from './components/LiveRaceTelemetryPanel';
+import LiveDriversChampionship from './components/championships/LiveDriversChampionship';
+import LiveConstructorsChampionship from './components/championships/LiveConstructorsChampionship';
 import NewsView from './components/NewsView';
 import ChatView from './components/chat/ChatView';
 import { AlertCircle } from 'lucide-react';
@@ -43,6 +45,8 @@ const HUD_LAYOUT_STORAGE_PREFIX = 'hud_widget_f1-hud-v5_';
 const HUD_WIDGET_OPTIONS = [
   { id: 'leaderboard', label: 'Live timing' },
   { id: 'live_race_telemetry', label: 'Live race telemetry' },
+  { id: 'drivers_championship', label: 'Drivers championship' },
+  { id: 'constructors_championship', label: 'Constructors championship' },
   { id: 'next_race_intelligence', label: 'Previous winners + prediction' },
   { id: 'focused_driver', label: 'Driver focus' },
   { id: 'session_info', label: 'Session info' },
@@ -56,6 +60,8 @@ type HudVisibility = Record<HudWidgetId, boolean>;
 const DEFAULT_HUD_VISIBILITY: HudVisibility = {
   leaderboard: true,
   live_race_telemetry: true,
+  drivers_championship: true,
+  constructors_championship: true,
   next_race_intelligence: true,
   focused_driver: false,
   session_info: false,
@@ -105,6 +111,9 @@ function App() {
     lapCount,
     weather,
     raceControl,
+    championships,
+    championshipsLoading,
+    championshipsError,
   } = state;
   const isLive = liveStatus === 'LIVE';
   const [latestCompletedSession, setLatestCompletedSession] = useState<DashboardSession | null>(null);
@@ -422,6 +431,30 @@ function App() {
                   </div>
                   )}
 
+                  {visibleHudWidgets.drivers_championship && (
+                  <div className="glass-panel" style={{ padding: '0.9rem' }}>
+                    <LiveDriversChampionship
+                      drivers={championships?.drivers ?? []}
+                      season={championships?.season ?? new Date().getFullYear().toString()}
+                      round={championships?.round ?? '0'}
+                      loading={championshipsLoading}
+                      error={championshipsError}
+                    />
+                  </div>
+                  )}
+
+                  {visibleHudWidgets.constructors_championship && (
+                  <div className="glass-panel" style={{ padding: '0.9rem' }}>
+                    <LiveConstructorsChampionship
+                      constructors={championships?.constructors ?? []}
+                      season={championships?.season ?? new Date().getFullYear().toString()}
+                      round={championships?.round ?? '0'}
+                      loading={championshipsLoading}
+                      error={championshipsError}
+                    />
+                  </div>
+                  )}
+
                   {visibleHudWidgets.next_race_intelligence && (
                   <div className="glass-panel" style={{ padding: '0.9rem' }}>
                     <NextRaceIntelligence nextSession={nextRaceSchedule} compact />
@@ -506,6 +539,30 @@ function App() {
                       weather={weather}
                       raceControl={raceControl}
                       liveStatus={liveStatus}
+                    />
+                  </DraggableWidget>
+                  )}
+
+                  {visibleHudWidgets.drivers_championship && (
+                  <DraggableWidget key={`drivers_championship-${layoutResetKey}`} id="drivers_championship" title="DRIVERS CHAMPIONSHIP" defaultX={20} defaultY={550} width={300} defaultHeight={440} minWidth={260} minHeight={280} onClose={() => updateHudVisibility('drivers_championship', false)}>
+                    <LiveDriversChampionship
+                      drivers={championships?.drivers ?? []}
+                      season={championships?.season ?? new Date().getFullYear().toString()}
+                      round={championships?.round ?? '0'}
+                      loading={championshipsLoading}
+                      error={championshipsError}
+                    />
+                  </DraggableWidget>
+                  )}
+
+                  {visibleHudWidgets.constructors_championship && (
+                  <DraggableWidget key={`constructors_championship-${layoutResetKey}`} id="constructors_championship" title="CONSTRUCTORS CHAMPIONSHIP" defaultX={20} defaultY={1010} width={300} defaultHeight={460} minWidth={260} minHeight={300} onClose={() => updateHudVisibility('constructors_championship', false)}>
+                    <LiveConstructorsChampionship
+                      constructors={championships?.constructors ?? []}
+                      season={championships?.season ?? new Date().getFullYear().toString()}
+                      round={championships?.round ?? '0'}
+                      loading={championshipsLoading}
+                      error={championshipsError}
                     />
                   </DraggableWidget>
                   )}

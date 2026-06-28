@@ -54,9 +54,19 @@ const nextRacePayload = {
   },
 };
 
+const standingsPayload = {
+  season: '2026',
+  round: '0',
+  fetchedAt: '2026-05-01T16:00:00.000Z',
+  drivers: [],
+  constructors: [],
+  warnings: ['Standings stubbed for visual snapshot.'],
+};
+
 const mockVariableRaceData = async (page: Page) => {
   await page.route('**/api/telemetry', (route) => route.fulfill({ json: telemetryStandbyPayload }));
   await page.route('**/api/schedule/next-race', (route) => route.fulfill({ json: nextRacePayload }));
+  await page.route('**/api/standings*', (route) => route.fulfill({ json: standingsPayload }));
 };
 
 const waitForStableUI = async (page: Page) => {

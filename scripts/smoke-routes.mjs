@@ -38,6 +38,7 @@ async function main() {
     ['/api/sessions?year=2025', 'application/json'],
     ['/api/replay/2025/1', 'application/json'],
     ['/api/telemetry', 'application/json'],
+    ['/api/standings', 'application/json'],
   ];
 
   for (const [path, contentType] of checks) {

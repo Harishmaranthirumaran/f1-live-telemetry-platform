@@ -1,6 +1,7 @@
 import { useEffect, useReducer } from 'react';
 import { getLiveDashboardData } from '../data-access/telemetryClient';
 import { fetchHistoricalData, fetchSeasonRaces } from '../services/jolpica';
+import { fetchChampionshipStandings, type ClientChampionships } from '../services/standings';
 import { POLLING_INTERVAL, DEFAULT_YEAR, FALLBACK_YEAR } from '../constants';
 import type { DashboardSession, DriverPosition, LapCount, MaxStats, RaceControlMessage, SeasonRace, TrackStatus, WeatherData, WeekendSession } from '../types/f1';
 
@@ -27,6 +28,9 @@ interface DashboardState {
   lapCount: LapCount | null;
   weather: WeatherData | null;
   raceControl: RaceControlMessage[];
+  championships: ClientChampionships | null;
+  championshipsLoading: boolean;
+  championshipsError: string | null;
 }
 
 type DashboardAction =
@@ -55,7 +59,10 @@ type DashboardAction =
     }
   | { type: 'FETCH_ERROR'; payload: string }
   | { type: 'LOAD_CALENDAR'; payload: SeasonRace[] }
-  | { type: 'RESET_HISTORICAL'; payload: { year: string; round: string | null; races: SeasonRace[] } };
+  | { type: 'RESET_HISTORICAL'; payload: { year: string; round: string | null; races: SeasonRace[] } }
+  | { type: 'CHAMPIONSHIPS_START' }
+  | { type: 'CHAMPIONSHIPS_SUCCESS'; payload: ClientChampionships }
+  | { type: 'CHAMPIONSHIPS_ERROR'; payload: string };
 
 const dashboardReducer = (state: DashboardState, action: DashboardAction): DashboardState => {
   switch (action.type) {
@@ -104,6 +111,17 @@ const dashboardReducer = (state: DashboardState, action: DashboardAction): Dashb
         selectedRound: action.payload.round,
         seasonRaces: action.payload.races,
       };
+    case 'CHAMPIONSHIPS_START':
+      return { ...state, championshipsLoading: true, championshipsError: null };
+    case 'CHAMPIONSHIPS_SUCCESS':
+      return {
+        ...state,
+        championships: action.payload,
+        championshipsLoading: false,
+        championshipsError: action.payload.error ?? null,
+      };
+    case 'CHAMPIONSHIPS_ERROR':
+      return { ...state, championshipsLoading: false, championshipsError: action.payload };
     default:
       return state;
   }
@@ -149,6 +167,9 @@ const initialState: DashboardState = {
   lapCount: null,
   weather: null,
   raceControl: [],
+  championships: null,
+  championshipsLoading: false,
+  championshipsError: null,
 };
 
 export function useDashboardData() {
@@ -245,6 +266,32 @@ export function useDashboardData() {
       if (intervalId) clearInterval(intervalId);
     };
   }, [state.viewMode, state.selectedYear, state.selectedRound, state.seasonRaces.length]);
+
+  // Championship standings — refresh every 30 min, regardless of view mode
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadChampionships = async () => {
+      dispatch({ type: 'CHAMPIONSHIPS_START' });
+      try {
+        const payload = await fetchChampionshipStandings('current');
+        if (cancelled) return;
+        dispatch({ type: 'CHAMPIONSHIPS_SUCCESS', payload });
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : 'Failed to load championship standings.';
+        dispatch({ type: 'CHAMPIONSHIPS_ERROR', payload: message });
+      }
+    };
+
+    loadChampionships();
+    const intervalId = setInterval(loadChampionships, 30 * 60 * 1000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, []);
 
   return { state, dispatch };
 }
